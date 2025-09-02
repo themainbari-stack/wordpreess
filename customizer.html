@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Personnalisation du tampon</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); min-height: 100vh; overflow-x: hidden; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 16px; }
+
+    .header { text-align: center; color: #fff; margin-bottom: 16px; }
+    .header h1 { font-size: 1.8rem; margin-bottom: 6px; }
+    .header p { opacity: .9; }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr clamp(240px, 30vw, 380px);
+      gap: 16px;
+      background: #fff;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      min-height: 70vh;
+    }
+
+    .left-column { background: #f8f9fa; border-radius: 12px; padding: 14px; overflow-y: auto; max-height: 68vh; }
+    .section { margin-bottom: 14px; padding: 12px; background: #fff; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); }
+    .section h3 { color: #2c3e50; margin-bottom: 8px; font-size: 1.02rem; border-bottom: 2px solid #3498db; padding-bottom: 6px; }
+
+    .logo-section { background: #fff3cd; border: 2px dashed #ffc107; }
+    .logo-upload { margin-bottom: 10px; }
+    .logo-preview { width: 90px; height: 90px; border: 2px solid #ddd; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin: 8px 0; background: #f8f9fa; overflow: hidden; }
+    .logo-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+    .text-input { width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; }
+    .text-input:focus { border-color: #3498db; outline: none; box-shadow: 0 0 8px rgba(52,152,219,0.2); }
+    .text-line { margin-bottom: 8px; position: relative; }
+    .text-line .char-counter { display: inline-block; margin-top: 4px; color: #555; font-size: 12px; }
+
+    .ink-colors { background: #f8d7da; border: 2px dashed #dc3545; }
+    .color-options { display: grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); gap: 8px; }
+    .color-option { display: flex; align-items: center; gap: 8px; padding: 8px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; font-size: 13px; position: relative; }
+    .color-option:hover { border-color: #3498db; transform: translateY(-1px); }
+    .color-option.selected { border-color: #27ae60; background: #d4edda; }
+    .color-option input[type="radio"] { margin: 0; }
+    .color-preview { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #333; }
+
+    .size-section { background: #d1ecf1; border: 2px dashed #17a2b8; }
+    .size-options { display: grid; grid-template-columns: repeat(auto-fit,minmax(110px,1fr)); gap: 8px; }
+    .size-option { padding: 10px; border: 2px solid #ddd; border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.2s ease; font-size: 13px; position: relative; }
+    .size-option:hover { border-color: #3498db; transform: translateY(-1px); }
+    .size-option.selected { border-color: #27ae60; background: #d4edda; }
+
+    .shape-section { background: #e2e3e5; border: 2px dashed #6c757d; }
+    .shape-options { display: grid; grid-template-columns: repeat(auto-fit,minmax(90px,1fr)); gap: 8px; margin-bottom: 8px; }
+    .shape-option { padding: 10px; border: 2px solid #ddd; border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.2s ease; font-size: 13px; position: relative; }
+    .shape-option:hover { border-color: #3498db; transform: translateY(-1px); }
+    .shape-option.selected { border-color: #27ae60; background: #d4edda; }
+
+    .right-column { background: #f8f9fa; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; align-items: center; height: fit-content; }
+    .preview-container { width: 100%; max-width: 100%; aspect-ratio: 1; background: #fff; border: 3px dashed #808080; border-radius: 50%; position: relative; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: crosshair; touch-action: none; }
+    .preview-container.rectangle { border-radius: 10px; aspect-ratio: 1.5; }
+    .preview-container.square { border-radius: 10px; aspect-ratio: 1; }
+    .preview-container.oval { border-radius: 50%; aspect-ratio: 1.5; }
+
+    .preview-content { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 14px; text-align: center; }
+
+    .preview-logo { position: absolute; max-width: 260px; max-height: 260px; min-width: 54px; min-height: 54px; cursor: move; user-select: none; z-index: 10; transition: transform 0.1s ease; touch-action: none; background-size: contain; background-repeat: no-repeat; background-position: center; }
+    .preview-logo:hover { transform: scale(1.03); }
+
+    .preview-text-group { position: absolute; inset: 0; z-index: 5; }
+    .preview-text-line { position: absolute; white-space: pre; cursor: move; user-select: none; }
+
+    .preview-qr { position: absolute; width: 50px; height: 50px; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: move; user-select: none; z-index: 25; transition: transform 0.1s ease; touch-action: none; left: 10px; top: 10px; background: transparent; }
+    .preview-qr img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+
+    .buttons { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .btn { padding: 8px 12px; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; }
+    .btn-primary { background: #3498db; color: #fff; }
+    .btn-primary:hover { background: #2980b9; transform: translateY(-1px); }
+
+    @media (max-width: 680px) {
+      .main-content { grid-template-columns: 1fr; }
+      .right-column { order: 2; }
+      .left-column { order: 1; max-height: unset; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Personnalisation du tampon</h1>
+      <p>Créez votre tampon</p>
+    </div>
+
+    <div class="main-content">
+      <div class="left-column">
+        <div class="section logo-section">
+          <h3>Logo et texte</h3>
+          <div class="logo-upload">
+            <label for="logoFile">Choisissez votre logo :</label>
+            <input type="file" id="logoFile" accept="image/*">
+            <div class="logo-preview" id="logoPreview"><span>Logo</span></div>
+          </div>
+
+          <div class="logo-upload">
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <button type="button" class="btn btn-primary" onclick="removeLogo()">Supprimer le logo</button>
+              <button type="button" class="btn btn-primary" onclick="removeQr()">Masquer le QR</button>
+              <button type="button" class="btn btn-primary" id="btnShowQr" onclick="showQr()" disabled>Afficher le QR</button>
+            </div>
+          </div>
+
+          <div class="line-count">
+            <label for="lineCount">Nombre de lignes:</label>
+            <input type="number" id="lineCount" min="1" max="4" value="1">
+            <small id="lineLimitInfo">Max 4 lignes</small>
+          </div>
+
+          <div>
+            <label>Texte du tampon (une entrée par ligne):</label>
+            <div id="textFields"></div>
+          </div>
+        </div>
+
+        <div class="section ink-colors">
+          <h3>Couleur d'encre</h3>
+          <div class="color-options">
+            <div class="color-option" data-value="green" onclick="selectColor('green', this)"><input type="radio" name="inkColor" value="green"><div class="color-preview" style="background:#28a745;"></div><span>Vert</span></div>
+            <div class="color-option" data-value="blue" onclick="selectColor('blue', this)"><input type="radio" name="inkColor" value="blue"><div class="color-preview" style="background:#007bff;"></div><span>Bleu</span></div>
+            <div class="color-option" data-value="red" onclick="selectColor('red', this)"><input type="radio" name="inkColor" value="red"><div class="color-preview" style="background:#dc3545;"></div><span>Rouge</span></div>
+            <div class="color-option" data-value="black" onclick="selectColor('black', this)"><input type="radio" name="inkColor" value="black"><div class="color-preview" style="background:#000000;"></div><span>Noir</span></div>
+          </div>
+        </div>
+
+        <div class="section size-section">
+          <h3>Taille du tampon</h3>
+          <div class="size-options">
+            <div class="size-option" onclick="selectSize('small', this)"><strong>Petit</strong><br><small>3×3cm</small></div>
+            <div class="size-option" onclick="selectSize('medium', this)"><strong>Moyen</strong><br><small>5×5cm</small></div>
+            <div class="size-option" onclick="selectSize('large', this)"><strong>Grand</strong><br><small>7×7cm</small></div>
+            <div class="size-option" onclick="selectSize('xlarge', this)"><strong>Très grand</strong><br><small>10×10cm</small></div>
+          </div>
+        </div>
+
+        <div class="section shape-section">
+          <h3>Forme du tampon</h3>
+          <div class="shape-options">
+            <div class="shape-option" onclick="selectShape('circle', this)"><strong>Cercle</strong></div>
+            <div class="shape-option" onclick="selectShape('oval', this)"><strong>Ovale</strong></div>
+            <div class="shape-option" onclick="selectShape('square', this)"><strong>Carré</strong></div>
+            <div class="shape-option" onclick="selectShape('rectangle', this)"><strong>Rectangle</strong></div>
+          </div>
+        </div>
+
+        <div class="buttons">
+          <button type="button" class="btn btn-primary" onclick="resetForm()">🔄 Réinitialiser</button>
+          <button type="button" class="btn btn-primary" onclick="centerLogoOnly()">🎯 Centrer le logo</button>
+          <button type="button" class="btn btn-primary" onclick="centerAllElements()">🎯 Tout centrer</button>
+        </div>
+      </div>
+
+      <div class="right-column">
+        <h3 style="margin-bottom:8px;">Aperçu du tampon</h3>
+        <div class="preview-container" id="previewContainer">
+          <div class="preview-content" id="previewContent">
+            <div class="preview-logo" id="previewLogo" style="display:none;"></div>
+            <div class="preview-text-group" id="previewTextGroup"></div>
+            <div class="preview-qr" id="previewQr"><img src="./qr.png" alt="QR"></div>
+          </div>
+        </div>
+
+        <div id="previewInfo" style="font-size:13px;color:#374151;">
+          <p><strong>Forme:</strong> <span id="shapeInfo">Cercle</span></p>
+          <p><strong>Taille:</strong> <span id="sizeInfo">3cm × 3cm</span></p>
+          <p><strong>Couleur:</strong> <span id="colorInfo">Non choisi</span></p>
+          <p><strong>Lignes:</strong> <span id="lineInfo">1</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentColor = '';
+    let currentSize = 'small';
+    let currentShape = 'circle';
+    let currentLogo = null;
+    let textLines = ['Votre texte ici'];
+    let lineStyles = [{ fontFamily: "Arial, sans-serif", fontWeight: 'normal', fontSizePx: 24, textAlign: 'center' }];
+    let linePositions = [null];
+
+    const charLimits = { small: 40, medium: 80, large: 120, xlarge: 160 };
+
+    function getColorValue(color) {
+      const colorMap = {
+        green:'#28a745', blue:'#007bff', red:'#dc3545', black:'#000000'
+      };
+      return colorMap[color] || '#333';
+    }
+
+    function updateInfo() {
+      const shapeNames = { circle:'Cercle', oval:'Ovale', square:'Carré', rectangle:'Rectangle' };
+      const sizeNames = { small:'3×3cm', medium:'5×5cm', large:'7×7cm', xlarge:'10×10cm' };
+      const colorNames = { green:'Vert', blue:'Bleu', red:'Rouge', black:'Noir' };
+      document.getElementById('shapeInfo').textContent = shapeNames[currentShape] || '-';
+      document.getElementById('sizeInfo').textContent = sizeNames[currentSize] || '-';
+      document.getElementById('colorInfo').textContent = colorNames[currentColor] || 'Non choisi';
+      document.getElementById('lineInfo').textContent = document.getElementById('lineCount').value;
+    }
+
+    function selectColor(color, el) {
+      currentColor = color;
+      document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+      const input = el.querySelector('input'); if (input) input.checked = true;
+
+      updatePreview();
+      sendUpdateToParent();
+    }
+
+    function selectSize(size, el) {
+      currentSize = size;
+      document.querySelectorAll('.size-option').forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+      renderTextInputs();
+      updatePreview();
+      sendUpdateToParent();
+    }
+
+    function selectShape(shape, el) {
+      currentShape = shape;
+      document.querySelectorAll('.shape-option').forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+      
+      updatePreview();
+      sendUpdateToParent();
+    }
+
+    function renderTextInputs() {
+      const count = parseInt(document.getElementById('lineCount').value) || 1;
+      const container = document.getElementById('textFields');
+      container.innerHTML = '';
+      const limit = charLimits[currentSize];
+
+      if (textLines.length < count) for (let i = textLines.length; i < count; i++) textLines[i] = '';
+      if (textLines.length > count) textLines = textLines.slice(0, count);
+      if (lineStyles.length < count) for (let i = lineStyles.length; i < count; i++) lineStyles[i] = { fontFamily: "Arial, sans-serif", fontWeight: 'normal', fontSizePx: 24, textAlign: 'center' };
+      if (lineStyles.length > count) lineStyles = lineStyles.slice(0, count);
+      if (linePositions.length < count) for (let i = linePositions.length; i < count; i++) linePositions[i] = null;
+      if (linePositions.length > count) linePositions = linePositions.slice(0, count);
+
+      for (let i = 0; i < count; i++) {
+        const style = lineStyles[i] || { fontFamily: "Arial, sans-serif", fontWeight: 'normal', fontSizePx: 24, textAlign: 'center' };
+        const wrap = document.createElement('div');
+        wrap.className = 'text-line';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'text-input';
+        input.placeholder = `Ligne ${i + 1}`;
+        input.maxLength = limit;
+        input.value = textLines[i] || '';
+
+        const counter = document.createElement('small');
+        counter.className = 'char-counter';
+        counter.textContent = `${input.value.length}/${limit} caractères`;
+
+        input.addEventListener('input', (e) => {
+          textLines[i] = e.target.value;
+          counter.textContent = `${e.target.value.length}/${e.target.maxLength} caractères`;
+          updatePreview();
+          sendUpdateToParent();
+        });
+
+        wrap.appendChild(input);
+        wrap.appendChild(counter);
+        container.appendChild(wrap);
+      }
+    }
+
+    function renderPreviewLines() {
+      const group = document.getElementById('previewTextGroup');
+      group.innerHTML = '';
+      const lines = textLines.length ? textLines : ['Votre texte ici'];
+
+      const container = document.getElementById('previewContainer').getBoundingClientRect();
+
+      for (let i=0;i<lines.length;i++){
+        const st = lineStyles[i] || { fontFamily: "Arial, sans-serif", fontWeight: 'normal', fontSizePx: 24, textAlign: 'center' };
+        const div = document.createElement('div');
+        div.className = 'preview-text-line';
+        div.dataset.line = i.toString();
+        div.textContent = (lines[i] && lines[i].trim()) ? lines[i] : ' ';
+        div.style.fontFamily = st.fontFamily;
+        div.style.fontWeight = st.fontWeight;
+        div.style.fontSize = (st.fontSizePx || 24) + 'px';
+        div.style.textAlign = st.textAlign || 'center';
+        div.style.color = getColorValue(currentColor || '#333');
+
+        div.style.left = '0px'; div.style.top = '0px';
+        group.appendChild(div);
+        const w = div.offsetWidth, h = div.offsetHeight;
+
+        if (!linePositions[i]) {
+          const left = Math.max(0, (container.width - w) / 2);
+          const top = Math.max(0, container.height/2 - (lines.length*h)/2 + i*(h+6));
+          linePositions[i] = { left, top };
+        }
+        div.style.left = linePositions[i].left + 'px';
+        div.style.top  = linePositions[i].top  + 'px';
+      }
+    }
+
+    function updatePreview() {
+      const container = document.getElementById('previewContainer');
+      container.className = `preview-container ${currentShape}`;
+
+      updateInfo();
+      renderPreviewLines();
+    }
+
+    function removeLogo() {
+      currentLogo = null;
+      const file = document.getElementById('logoFile');
+      const prev = document.getElementById('logoPreview');
+      const el = document.getElementById('previewLogo');
+
+      if (file) file.value = '';
+      if (prev) prev.innerHTML = '<span>Logo</span>';
+
+      if (el) {
+        el.style.display = 'none';
+        el.style.backgroundImage = '';
+        el.style.backgroundColor = 'transparent';
+        el.style.width = '';
+        el.style.height = '';
+        el.style.left = '';
+        el.style.top = '';
+        el.style.transform = '';
+      }
+      
+      updatePreview();
+      sendUpdateToParent();
+    }
+
+    function removeQr() {
+      const qr = document.getElementById('previewQr');
+      if (qr) qr.style.display = 'none';
+      const bs = document.getElementById('btnShowQr');
+      if (bs) bs.disabled = false;
+      sendUpdateToParent();
+    }
+
+    function showQr() {
+      const qr = document.getElementById('previewQr');
+      if (!qr) return;
+      qr.style.display = 'flex';
+      qr.style.width = '55px';
+      qr.style.height = '55px';
+      qr.style.left = '101px';
+      qr.style.top = '170px';
+
+      const bs = document.getElementById('btnShowQr');
+      if (bs) bs.disabled = true;
+      sendUpdateToParent();
+    }
+
+    function centerLogoOnly() {
+      const logo = document.getElementById('previewLogo');
+      if (!logo || logo.style.display === 'none') {
+        alert('Aucun logo à centrer');
+        return;
+      }
+      
+      const container = document.getElementById('previewContainer');
+      const containerRect = container.getBoundingClientRect();
+      const logoRect = logo.getBoundingClientRect();
+      
+      const centerX = (containerRect.width - logoRect.width) / 2;
+      const centerY = (containerRect.height - logoRect.height) / 2;
+      
+      logo.style.left = centerX + 'px';
+      logo.style.top = centerY + 'px';
+    }
+
+    function centerAllElements() {
+      const container = document.getElementById('previewContainer');
+      const containerRect = container.getBoundingClientRect();
+      
+      // Center logo
+      const logo = document.getElementById('previewLogo');
+      if (logo && logo.style.display !== 'none') {
+        const logoRect = logo.getBoundingClientRect();
+        const centerX = (containerRect.width - logoRect.width) / 2;
+        const centerY = (containerRect.height - logoRect.height) / 2;
+        logo.style.left = centerX + 'px';
+        logo.style.top = centerY + 'px';
+      }
+      
+      // Center QR
+      const qr = document.getElementById('previewQr');
+      if (qr && qr.style.display !== 'none') {
+        const qrRect = qr.getBoundingClientRect();
+        const centerX = (containerRect.width - qrRect.width) / 2;
+        const centerY = (containerRect.height - qrRect.height) / 2;
+        qr.style.left = centerX + 'px';
+        qr.style.top = centerY + 'px';
+      }
+      
+      // Center text lines
+      const textLines = document.querySelectorAll('.preview-text-line');
+      textLines.forEach((line, index) => {
+        const lineRect = line.getBoundingClientRect();
+        const centerX = (containerRect.width - lineRect.width) / 2;
+        const centerY = (containerRect.height - lineRect.height) / 2;
+        
+        line.style.left = centerX + 'px';
+        line.style.top = centerY + 'px';
+        
+        if (linePositions[index]) {
+          linePositions[index] = { left: centerX, top: centerY };
+        }
+      });
+    }
+
+    function resetForm() {
+      removeLogo();
+      
+      const qr = document.getElementById('previewQr');
+      if (qr) {
+        qr.style.display = 'flex';
+        qr.style.width = '55px';
+        qr.style.height = '55px';
+        qr.style.left = '101px';
+        qr.style.top = '170px';
+      }
+      
+      textLines = ['Votre texte ici'];
+      lineStyles = [{ fontFamily: "Arial, sans-serif", fontWeight: 'normal', fontSizePx: 24, textAlign: 'center' }];
+      linePositions = [null];
+      
+      currentColor = '';
+      currentSize = 'small';
+      currentShape = 'circle';
+      
+      document.getElementById('lineCount').value = '1';
+      document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+      document.querySelectorAll('.size-option').forEach(o => o.classList.remove('selected'));
+      document.querySelectorAll('.shape-option').forEach(o => o.classList.remove('selected'));
+      
+      const firstSize = document.querySelector('.size-option');
+      const firstShape = document.querySelector('.shape-option');
+      if (firstSize) firstSize.classList.add('selected');
+      if (firstShape) firstShape.classList.add('selected');
+      
+      renderTextInputs();
+      updatePreview();
+      sendUpdateToParent();
+    }
+
+    function sendUpdateToParent() {
+      try {
+        const hasLogo = !!currentLogo;
+        const qrEl = document.getElementById('previewQr');
+        const hasQr = !!qrEl && (qrEl.style.display || 'flex') !== 'none';
+        const numLines = (textLines || []).filter(t => (t||'').trim().length>0).length;
+
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'stamp_customization_update',
+            customization: {
+              inkColor: currentColor,
+              shape: currentShape,
+              size: currentSize,
+              title: 'Mon tampon',
+              hasLogo: hasLogo,
+              hasQr: hasQr,
+              textLines: numLines,
+              hasFrame: false,
+              isCurveText: false
+            }
+          }, '*');
+          
+          // Send logo data for AR form
+          if (hasLogo) {
+            window.parent.postMessage({
+              type: 'msp_stamp_logo_update',
+              logo: currentLogo
+            }, '*');
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Upload logo
+    document.getElementById('logoFile').addEventListener('change', (e)=>{
+      const f=e.target.files[0]; if(!f) return;
+      const r=new FileReader();
+      r.onload = (ev)=>{
+        currentLogo = ev.target.result;
+        const prev = document.getElementById('logoPreview');
+        if (prev) prev.innerHTML = '<img src="'+currentLogo+'" alt="Logo">';
+        const L=document.getElementById('previewLogo'); L.style.display='block';
+        L.style.backgroundImage = `url(${currentLogo})`;
+        L.style.left='40px'; L.style.top='40px'; L.style.width='90px'; L.style.height='90px';
+        
+        updatePreview();
+        sendUpdateToParent();
+      };
+      r.readAsDataURL(f);
+    });
+
+    document.getElementById('lineCount').addEventListener('change', () => {
+      renderTextInputs();
+      updatePreview();
+      sendUpdateToParent();
+    });
+
+    function initBasics() {
+      const firstSize = document.querySelector('.size-option'); if (firstSize) firstSize.classList.add('selected');
+      const firstShape = document.querySelector('.shape-option'); if (firstShape) firstShape.classList.add('selected');
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      initBasics();
+      renderTextInputs();
+      updatePreview();
+      sendUpdateToParent();
+    });
+  </script>
+</body>
+</html>

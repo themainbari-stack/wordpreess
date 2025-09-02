@@ -196,6 +196,7 @@ function msp_admin_pricing_page(){
 		update_option('msp_dc_price_bois', sanitize_text_field($_POST['msp_dc_price_bois'] ?? '0'));
 		update_option('msp_dc_price_metal', sanitize_text_field($_POST['msp_dc_price_metal'] ?? '0'));
 		update_option('msp_dc_price_pvc', sanitize_text_field($_POST['msp_dc_price_pvc'] ?? '0'));
+		update_option('msp_dc_price_digital', sanitize_text_field($_POST['msp_dc_price_digital'] ?? '15.00'));
 
 		$ink_lines   = array_map('trim', explode("\n", str_replace("\r",'', (string)($_POST['msp_stamp_price_ink_map'] ?? ''))));
 		$shape_lines = array_map('trim', explode("\n", str_replace("\r",'', (string)($_POST['msp_stamp_price_shape_map'] ?? ''))));
@@ -210,13 +211,15 @@ function msp_admin_pricing_page(){
 	$bois = esc_attr(get_option('msp_dc_price_bois','0'));
 	$metal = esc_attr(get_option('msp_dc_price_metal','0'));
 	$pvc = esc_attr(get_option('msp_dc_price_pvc','0'));
+	$digital = esc_attr(get_option('msp_dc_price_digital','15.00'));
 	$ink_map = json_decode(get_option('msp_stamp_price_ink_map','[]'), true);
 	$shape_map = json_decode(get_option('msp_stamp_price_shape_map','[]'), true);
 	$size_map = json_decode(get_option('msp_stamp_price_size_map','[]'), true);
 	echo '<div class="wrap"><h1>Tarification Globale</h1><form method="post">';
 	wp_nonce_field('msp_price_opts');
-	echo '<h2>Carte Digitale (matériaux)</h2>
+	echo '<h2>Carte Digitale</h2>
 <table class="form-table">
+<tr><th>Prix de base (€)</th><td><input name="msp_dc_price_digital" value="'.$digital.'" class="regular-text"></td></tr>
 <tr><th>Bois (€)</th><td><input name="msp_dc_price_bois" value="'.$bois.'" class="regular-text"></td></tr>
 <tr><th>Métal (€)</th><td><input name="msp_dc_price_metal" value="'.$metal.'" class="regular-text"></td></tr>
 <tr><th>PVC (€)</th><td><input name="msp_dc_price_pvc" value="'.$pvc.'" class="regular-text"></td></tr>
@@ -461,7 +464,7 @@ function msp_register_user_handler(){
 	$email    = sanitize_email($_POST['email'] ?? '');
 	$password = $_POST['password'] ?? '';
 	if (!$username || !$email || !$password){ wp_send_json_error('Champs requis manquants',400); }
-	if (username_exists($username)){ wp_send_json_error('Nom d’utilisateur déjà pris',400); }
+	if (username_exists($username)){ wp_send_json_error('Nom d'utilisateur déjà pris',400); }
 	if (email_exists($email)){ wp_send_json_error('Email déjà utilisé',400); }
 
 	$user_id = wp_create_user($username, $password, $email);
@@ -594,6 +597,16 @@ add_shortcode('dc_user_form', function() {
 	ob_start(); ?>
 	<div style="max-width:980px;margin:32px auto;background:#fff;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);padding:24px;position:relative;">
 		<h2 style="margin:0 0 20px;color:#1f2937;text-align:center;">Créer votre carte digitale</h2>
+		
+		<!-- Physical Card Option -->
+		<div style="background:#f0f9ff;border:1px solid #0ea5e9;border-radius:12px;padding:16px;margin-bottom:20px;">
+			<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;color:#0c4a6e;">
+				<input type="checkbox" id="physicalCardOption" name="physical_card" value="1" style="width:18px;height:18px;">
+				Je veux aussi une carte physique personnalisée
+			</label>
+			<small style="color:#0c4a6e;margin-top:8px;display:block;">Si cochée, vous pourrez personnaliser votre carte physique après avoir créé la carte digitale.</small>
+		</div>
+		
 		<div style="display:grid;grid-template-columns:1fr 360px;gap:16px">
 			<form id="dcUserForm" method="post" enctype="multipart/form-data" style="display:grid;gap:16px;">
 				<?php wp_nonce_field('dc_card_nonce', 'dc_card_nonce'); ?>
@@ -618,7 +631,7 @@ add_shortcode('dc_user_form', function() {
 				</div>
 
 				<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
-					<button type="submit" class="button button-primary" style="background:#2563eb;color:#fff;border:none;border-radius:8px;padding:12px 16px;">Enregistrer</button>
+					<button type="submit" class="button button-primary" style="background:#2563eb;color:#fff;border:none;border-radius:8px;padding:12px 16px;">Créer la carte</button>
 					<a id="btnViewCard" href="#" target="_blank" style="display:none;background:#10b981;color:#fff;border:none;border-radius:8px;padding:12px 16px;text-decoration:none;">Afficher la carte</a>
 					<?php if ($from==='ar'): ?>
 					<a id="btnBackAR" href="#" style="display:none;background:#111827;color:#fff;border:none;border-radius:8px;padding:12px 16px;text-decoration:none;">Retour à l'AR</a>
@@ -631,6 +644,21 @@ add_shortcode('dc_user_form', function() {
 				<div style="font-weight:700;margin-bottom:6px">Aperçu</div>
 				<div id="dcPreview" style="width:100%;max-width:360px;aspect-ratio:1.586;border:1px dashed #cbd5e1;border-radius:12px;background:#fff;overflow:hidden;position:relative">
 					<div id="dcPreInner" style="position:absolute;inset:0;padding:12px"></div>
+				</div>
+				
+				<!-- Pricing Section -->
+				<div id="dcPricing" style="margin-top:16px;padding:12px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;">
+					<h4 style="margin:0 0 8px;color:#374151;">Prix</h4>
+					<div style="display:grid;grid-template-columns:1fr auto;gap:8px;font-size:14px;">
+						<span>Carte digitale:</span>
+						<span id="dcPrice">0.00 €</span>
+						<span>Options:</span>
+						<span id="dcOptionsPrice">0.00 €</span>
+						<div style="border-top:1px solid #e5e7eb;margin-top:8px;padding-top:8px;font-weight:700;">
+							<span>Total:</span>
+							<span id="dcTotalPrice">0.00 €</span>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -658,18 +686,59 @@ add_shortcode('dc_user_form', function() {
 			e.preventDefault();
 			const fd = new FormData(form);
 			fd.append('action','dc_create_card');
+			
+			// Check if physical card is selected
+			const physicalCard = document.getElementById('physicalCardOption').checked;
+			fd.append('physical_card', physicalCard ? '1' : '0');
+			
 			fetch('<?php echo admin_url('admin-ajax.php'); ?>', { method:'POST', body:fd, credentials:'same-origin' })
 			.then(r=>r.json()).then(d=>{
 				if (!d.success) { alert('Erreur: '+d.data); return; }
-				const view = d.data.view_url; const ar = d.data.ar_url;
-				const link = document.getElementById('dcSavedLink');
-				const btnV = document.getElementById('btnViewCard');
-				<?php if ($from==='ar'): ?>const btnB = document.getElementById('btnBackAR');<?php endif; ?>
-				link.textContent = 'Lien: ' + view; link.style.display='block';
-				btnV.href = view; btnV.style.display='inline-block';
-				<?php if ($from==='ar'): ?>btnB.href = ar; btnB.style.display='inline-block';<?php endif; ?>
+				
+				if (physicalCard) {
+					// Redirect to physical card customizer
+					window.location.href = d.data.physical_card_url;
+				} else {
+					// Show normal success
+					const view = d.data.view_url; const ar = d.data.ar_url;
+					const link = document.getElementById('dcSavedLink');
+					const btnV = document.getElementById('btnViewCard');
+					<?php if ($from==='ar'): ?>const btnB = document.getElementById('btnBackAR');<?php endif; ?>
+					link.textContent = 'Lien: ' + view; link.style.display='block';
+					btnV.href = view; btnV.style.display='inline-block';
+					<?php if ($from==='ar'): ?>btnB.href = ar; btnB.style.display='inline-block';<?php endif; ?>
+				}
 			}).catch(()=>alert('Erreur réseau'));
 		});
+		
+		// Update pricing when form changes
+		form.addEventListener('input', function() {
+			updatePricing();
+		});
+		
+		function updatePricing() {
+			const basePrice = <?php echo floatval(get_option('msp_dc_price_digital', '15.00')); ?>; // Base digital card price from admin
+			let optionsPrice = 0.00;
+			
+			// Add pricing for options if any
+			const name = document.querySelector('[name="dc_name"]').value;
+			const title = document.querySelector('[name="dc_title"]').value;
+			const phone = document.querySelector('[name="dc_phone"]').value;
+			const email = document.querySelector('[name="dc_email"]').value;
+			
+			if (name && title && phone && email) {
+				optionsPrice = 5.00; // Basic options
+			}
+			
+			const total = basePrice + optionsPrice;
+			
+			document.getElementById('dcPrice').textContent = basePrice.toFixed(2) + ' €';
+			document.getElementById('dcOptionsPrice').textContent = optionsPrice.toFixed(2) + ' €';
+			document.getElementById('dcTotalPrice').textContent = total.toFixed(2) + ' €';
+		}
+		
+		// Initialize pricing
+		updatePricing();
 	})();
 	</script>
 	<?php return ob_get_clean();
@@ -683,10 +752,13 @@ function dc_create_card_handler() {
 	$phone = sanitize_text_field($_POST['dc_phone'] ?? ''); $email = sanitize_email($_POST['dc_email'] ?? '');
 	$address = sanitize_textarea_field($_POST['dc_address'] ?? ''); $website = esc_url_raw($_POST['dc_website'] ?? '');
 	$linkedin = esc_url_raw($_POST['dc_linkedin'] ?? ''); $design = wp_unslash($_POST['dc_design_json'] ?? '');
+	$physical_card = isset($_POST['physical_card']) ? sanitize_text_field($_POST['physical_card']) : '0';
+	
 	if (!$name || !$title || !$phone || !$email) wp_send_json_error('Veuillez remplir tous les champs obligatoires');
 	$company_logo = ''; $personal_photo = '';
 	if (!empty($_FILES['dc_company_logo']['name'])) { $u = wp_handle_upload($_FILES['dc_company_logo'], ['test_form' => false]); if (!isset($u['error'])) $company_logo = $u['url']; }
 	if (!empty($_FILES['dc_personal_photo']['name'])) { $u = wp_handle_upload($_FILES['dc_personal_photo'], ['test_form' => false]); if (!isset($u['error'])) $personal_photo = $u['url']; }
+	
 	$post_id = wp_insert_post([
 		'post_title'  => $name . ' - ' . $title,
 		'post_content'=> '',
@@ -694,7 +766,9 @@ function dc_create_card_handler() {
 		'post_type'   => 'ecard_digital_card',
 		'post_author' => $user_id
 	]);
+	
 	if (is_wp_error($post_id)) wp_send_json_error('Erreur lors de la création de la carte');
+	
 	update_post_meta($post_id, 'dc_name', $name);
 	update_post_meta($post_id, 'dc_title', $title);
 	update_post_meta($post_id, 'dc_phone', $phone);
@@ -706,15 +780,26 @@ function dc_create_card_handler() {
 	update_post_meta($post_id, 'dc_personal_photo', $personal_photo);
 	update_post_meta($post_id, 'dc_user_id', $user_id);
 	update_post_meta($post_id, 'dc_created_at', current_time('mysql'));
+	update_post_meta($post_id, 'dc_physical_card', $physical_card);
+	
 	if (!empty($design)) update_post_meta($post_id, 'dc_design_json', $design);
+	
 	msp_track_card_action($post_id, $user_id, 'card_created');
 	msp_chat_send_invoice_message($user_id, $post_id, [ 'name'=>$name, 'email'=>$email, 'phone'=>$phone ]);
+	
 	$view_url = msp_get_page_url_by_slug('card-view') . '?card_id=' . $post_id;
 	$ar_url = msp_get_page_url_by_slug('ar-form') . '?card_id=' . $post_id;
-	if (!empty($_POST['no_redirect'])) {
-		wp_send_json_success(['view_url'=>$view_url,'ar_url'=>$ar_url]);
+	$physical_card_url = msp_get_page_url_by_slug('stamp-customizer') . '?card_id=' . $post_id . '&type=physical';
+	
+	if ($physical_card === '1') {
+		// Redirect to physical card customizer
+		wp_send_json_success(['physical_card_url'=>$physical_card_url, 'message'=>'Carte créée, redirection vers personnalisation physique']);
 	} else {
-		wp_send_json_success(['redirect_url'=>$ar_url, 'message'=>'Carte créée avec succès']);
+		if (!empty($_POST['no_redirect'])) {
+			wp_send_json_success(['view_url'=>$view_url,'ar_url'=>$ar_url]);
+		} else {
+			wp_send_json_success(['redirect_url'=>$ar_url, 'message'=>'Carte créée avec succès']);
+		}
 	}
 }
 
@@ -796,6 +881,72 @@ add_shortcode('msp_user_dashboard', function() {
 		<?php
 		return ob_get_clean();
 	}
+
+	$cards = get_posts([
+		'post_type' => 'ecard_digital_card',
+		'author' => $user_id,
+		'posts_per_page' => -1,
+		'post_status' => 'publish'
+	]);
+	$cards_saved = get_user_meta($user_id, 'msp_saved_cards', true); if(!is_array($cards_saved)) $cards_saved=[];
+	$stamps_saved = get_user_meta($user_id, 'msp_saved_stamps', true); if(!is_array($stamps_saved)) $stamps_saved=[];
+
+	// Get analytics data
+	global $wpdb;
+	$analytics_table = $wpdb->prefix . 'digital_card_analytics';
+	$total_views = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $analytics_table WHERE user_id = %d AND action_type = 'card_viewed'", $user_id));
+	$total_clicks = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $analytics_table WHERE user_id = %d AND action_type IN ('phone_clicked', 'email_clicked', 'website_clicked')", $user_id));
+	$recent_activity = $wpdb->get_results($wpdb->prepare("SELECT action_type, action_data, ip_address, created_at FROM $analytics_table WHERE user_id = %d ORDER BY created_at DESC LIMIT 10", $user_id));
+
+	ob_start(); ?>
+	<div class="msp-dashboard" style="max-width:1200px;margin:0 auto;padding:20px;">
+		<div style="background:#fff;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,.1);padding:24px;margin-bottom:24px;">
+			<h1 style="margin:0 0 8px;color:#1f2937;font-size:28px;">Tableau de bord</h1>
+			<p style="margin:0;color:#6b7280;">Bienvenue, <?php echo esc_html($user->display_name); ?></p>
+		</div>
+
+		<!-- Analytics Overview -->
+		<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
+			<div style="background:#fff;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,.1);padding:20px;text-align:center;">
+				<div style="font-size:32px;font-weight:700;color:#2563eb;margin-bottom:8px;"><?php echo count($cards); ?></div>
+				<div style="color:#6b7280;font-weight:600;">Cartes créées</div>
+			</div>
+			<div style="background:#fff;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,.1);padding:20px;text-align:center;">
+				<div style="font-size:32px;font-weight:700;color:#10b981;margin-bottom:8px;"><?php echo $total_views; ?></div>
+				<div style="color:#6b7280;font-weight:600;">Vues totales</div>
+			</div>
+			<div style="background:#fff;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,.1);padding:20px;text-align:center;">
+				<div style="font-size:32px;font-weight:700;color:#f59e0b;margin-bottom:8px;"><?php echo $total_clicks; ?></div>
+				<div style="color:#6b7280;font-weight:600;">Clics totaux</div>
+			</div>
+			<div style="background:#fff;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,.1);padding:20px;text-align:center;">
+				<div style="font-size:32px;font-weight:700;color:#ef4444;margin-bottom:8px;"><?php echo count($stamps_saved); ?></div>
+				<div style="color:#6b7280;font-weight:600;">Tampons sauvegardés</div>
+			</div>
+		</div>
+
+		<!-- Recent Activity -->
+		<?php if (!empty($recent_activity)): ?>
+		<div style="background:#fff;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,.1);padding:20px;margin-bottom:24px;">
+			<h3 style="margin:0 0 16px;color:#1f2937;">Activité récente</h3>
+			<div style="display:grid;gap:12px;">
+				<?php foreach ($recent_activity as $activity): ?>
+				<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#f8fafc;border-radius:8px;">
+					<div>
+						<strong><?php echo esc_html(ucfirst(str_replace('_', ' ', $activity->action_type))); ?></strong>
+						<?php if ($activity->action_data): ?>
+							<br><small style="color:#6b7280;"><?php echo esc_html($activity->action_data); ?></small>
+						<?php endif; ?>
+					</div>
+					<div style="text-align:right;">
+						<small style="color:#6b7280;"><?php echo esc_html($activity->ip_address); ?></small><br>
+						<small style="color:#9ca3af;"><?php echo esc_html(date('d/m/Y H:i', strtotime($activity->created_at))); ?></small>
+					</div>
+				</div>
+				<?php endforeach; ?>
+			</div>
+		</div>
+		<?php endif; ?>
 
 	$cards = get_posts([
 		'post_type' => 'ecard_digital_card',
@@ -990,9 +1141,8 @@ add_shortcode('stamp_customizer_iframe', function() {
 			<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
 				<h3 style="margin:0">Devis en direct</h3>
 				<div style="display:flex;gap:8px;flex-wrap:wrap">
-					<button id="mspSaveStampBtn" style="background:#111827;color:#fff;border:none;border-radius:10px;padding:10px 12px;cursor:pointer;font-weight:600">Save</button>
 					<a id="mspPayBtn" href="#" style="display:none;background:#10b981;color:#fff;border:none;border-radius:10px;padding:10px 12px;cursor:pointer;font-weight:600;text-decoration:none">Payer</a>
-					<button id="mspGoArBtn" style="background:#2563eb;color:#fff;border:none;border-radius:10px;padding:10px 12px;cursor:pointer;font-weight:600">AR</button>
+					<button id="mspGoArBtn" style="background:#2563eb;color:#fff;border:none;border-radius:10px;padding:10px 12px;cursor:pointer;font-weight:600">Next - AR</button>
 				</div>
 			</div>
 			<table style="width:100%;border-collapse:collapse">
@@ -1014,14 +1164,14 @@ add_shortcode('stamp_customizer_iframe', function() {
 			size: JSON.parse(invoice.dataset.sizeMap || '{}'),
 		};
 		const price = { base: parseFloat(invoice.dataset.productBase || '0') || 0 };
-		let currentSelections = { ink_color:null, shape:null, size:null, preview_data_url:'', title:'Mon tampon' };
+		let currentSelections = { inkColor:null, shape:null, size:null, preview_data_url:'', title:'Mon tampon' };
 
 		function money(v){ try { return (new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'})).format(v); } catch(e){ return Number(v).toFixed(2); } }
 		function p(map, key){ if(!key) return 0; key=String(key).toLowerCase(); return parseFloat(map[key] || 0) || 0; }
 		function rebuildInvoice(){
 			let rows=[], total=0;
 			if (price.base>0){ rows.push(['Produit', price.base]); total+=price.base; }
-			if (currentSelections.ink_color){ const v=p(maps.ink,currentSelections.ink_color); if (v>0){ rows.push(['Encre: '+currentSelections.ink_color, v]); total+=v; } }
+			if (currentSelections.inkColor){ const v=p(maps.ink,currentSelections.inkColor); if (v>0){ rows.push(['Encre: '+currentSelections.inkColor, v]); total+=v; } }
 			if (currentSelections.shape){ const v=p(maps.shape,currentSelections.shape); if (v>0){ rows.push(['Forme: '+currentSelections.shape, v]); total+=v; } }
 			if (currentSelections.size){ const v=p(maps.size,currentSelections.size); if (v>0){ rows.push(['Taille: '+currentSelections.size, v]); total+=v; } }
 			itemsBody.innerHTML = rows.map(r=>`<tr><td style="padding:8px;border-bottom:1px solid #f1f5f9">${r[0]}</td><td style="padding:8px;border-bottom:1px solid #f1f5f9;text-align:right">${money(r[1])}</td></tr>`).join('');
@@ -1031,7 +1181,7 @@ add_shortcode('stamp_customizer_iframe', function() {
 			const msg = ev.data || {};
 			if (msg.type==='stamp_customization_update' && msg.customization){
 				const c=msg.customization;
-				currentSelections.ink_color = c.inkColor || null;
+				currentSelections.inkColor = c.inkColor || null;
 				currentSelections.shape = c.shape || null;
 				currentSelections.size = c.size || null;
 				currentSelections.title = typeof c.title==='string' && c.title.trim()? c.title.trim() : currentSelections.title;
@@ -1040,27 +1190,10 @@ add_shortcode('stamp_customizer_iframe', function() {
 			if (msg.type==='msp_preview_updated' && msg.data && msg.data.preview_data_url){
 				currentSelections.preview_data_url = msg.data.preview_data_url;
 			}
-		});
-		document.getElementById('mspSaveStampBtn').addEventListener('click', function(){
-			const payload = {
-				title: currentSelections.title,
-				selections: currentSelections,
-				product_id: parseInt(invoice.dataset.productId || '0', 10),
-				total_eur: document.getElementById('msp-invoice-total')?.textContent || ''
-			};
-			const fd = new FormData();
-			fd.append('action','msp_save_user_design');
-			fd.append('type','stamp');
-			fd.append('payload', JSON.stringify(payload));
-			fd.append('security','<?php echo wp_create_nonce('msp_save_design'); ?>');
-			fetch('<?php echo admin_url('admin-ajax.php'); ?>',{method:'POST',body:fd})
-			.then(r=>r.json()).then(j=>{
-				if(j && j.success){
-					alert('Design sauvegardé. Vous pouvez payer ou continuer vers AR.');
-					document.getElementById('mspPayBtn').href = '<?php echo esc_url(home_url('/panier')); ?>';
-					document.getElementById('mspPayBtn').style.display = 'inline-block';
-				} else { alert((j&&j.data)||'Échec de sauvegarde'); }
-			}).catch(()=>alert('Erreur réseau'));
+			if (msg.type==='msp_stamp_logo_update' && msg.logo){
+				// Store logo for AR form
+				localStorage.setItem('msp_stamp_logo', msg.logo);
+			}
 		});
 		document.getElementById('mspGoArBtn').addEventListener('click', function(){
 			const pr = encodeURIComponent(currentSelections.preview_data_url || '');
@@ -1078,6 +1211,11 @@ add_shortcode('msp_ar_form', function () {
 	$card_id = intval($_GET['card_id'] ?? 0);
 	$stamp_preview = isset($_GET['stamp_preview']) ? esc_url_raw($_GET['stamp_preview']) : '';
 	if ($card_id && get_post_type($card_id) !== 'ecard_digital_card') $card_id = 0;
+	
+	// Get stamp logo from user meta if available
+	$user_id = get_current_user_id();
+	$stamp_logo = get_user_meta($user_id, 'msp_stamp_logo', true);
+	
 	ob_start(); ?>
 	<div style="max-width:1100px;margin:32px auto;background:#fff;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,.1);padding:24px;position:relative;">
 		<div style="display:flex;gap:16px;align-items:flex-start">
@@ -1095,7 +1233,16 @@ add_shortcode('msp_ar_form', function () {
 						<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
 							<div>
 								<label style="display:block;margin-bottom:6px;font-weight:600;color:#374151;">Image cible <?php echo $i; ?> <?php echo $i===1 ? '(obligatoire)' : '(optionnel)'; ?></label>
-								<input type="file" name="targets[<?php echo $i; ?>][image]" accept="image/*" <?php echo $i===1 ? 'required' : ''; ?> style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;">
+								<?php if ($i===1 && $stamp_logo): ?>
+									<div style="margin-bottom:10px;padding:10px;background:#f0f9ff;border:1px solid #0ea5e9;border-radius:8px;">
+										<strong>Logo du tampon détecté:</strong><br>
+										<img src="<?php echo esc_url($stamp_logo); ?>" alt="Logo tampon" style="width:80px;height:80px;object-fit:contain;margin:8px 0;border:1px solid #e5e7eb;border-radius:6px;">
+										<input type="hidden" name="targets[<?php echo $i; ?>][image]" value="<?php echo esc_attr($stamp_logo); ?>">
+										<small style="color:#0c4a6e;">Ce logo sera automatiquement utilisé comme cible AR</small>
+									</div>
+								<?php else: ?>
+									<input type="file" name="targets[<?php echo $i; ?>][image]" accept="image/*" <?php echo $i===1 ? 'required' : ''; ?> style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;">
+								<?php endif; ?>
 							</div>
 							<div>
 								<label style="display:block;margin-bottom:6px;font-weight:600;color:#374151;">Modèle 3D (.glb)</label>
@@ -1163,7 +1310,7 @@ add_shortcode('msp_ar_form', function () {
 			</div>
 		</div>
 	</div>
-	<script>
+			<script>
 	const sets = Array.from(document.querySelectorAll('.ar-target'));
 	document.getElementById('btnAddTarget').addEventListener('click', ()=>{
 		let hidden = null;
@@ -1173,6 +1320,29 @@ add_shortcode('msp_ar_form', function () {
 		if (hidden) hidden.style.display = 'block';
 		else alert('Maximum 10 cibles');
 	});
+	
+	// Check for stamp logo in localStorage
+	document.addEventListener('DOMContentLoaded', function() {
+		const stampLogo = localStorage.getItem('msp_stamp_logo');
+		if (stampLogo) {
+			// Auto-fill the first target with stamp logo
+			const firstTarget = document.querySelector('.ar-target[data-index="1"]');
+			if (firstTarget) {
+				const imageInput = firstTarget.querySelector('input[name="targets[1][image]"]');
+				if (imageInput && imageInput.type === 'hidden') {
+					// Update the hidden input value
+					imageInput.value = stampLogo;
+					
+					// Show preview
+					const previewDiv = firstTarget.querySelector('.logo-preview') || 
+						firstTarget.insertAdjacentHTML('beforeend', 
+							'<div class="logo-preview" style="margin-top:10px;"><img src="'+stampLogo+'" alt="Logo tampon" style="width:80px;height:80px;object-fit:contain;border:1px solid #e5e7eb;border-radius:6px;"></div>'
+						);
+				}
+			}
+		}
+	});
+	
 	document.getElementById('mspAr10Form').addEventListener('submit', function(e){
 		e.preventDefault();
 		const fd = new FormData(this); fd.append('action','msp_create_ar_targets');
@@ -1218,12 +1388,24 @@ function msp_create_ar_targets_handler(){
 					}
 				}
 			}
+			// Check if image is provided via hidden input (stamp logo)
+			if (empty($slot['image']) && isset($_POST['targets'][$i]['image']) && !empty($_POST['targets'][$i]['image'])) {
+				$slot['image'] = esc_url_raw($_POST['targets'][$i]['image']);
+			}
+			
 			if (!empty($slot['image']) || !empty($slot['business_card_url']) || !empty($slot['google_survey_url'])) $targets[$i] = $slot;
 		}
 	}
+	
 	if ($card_id) update_post_meta($ar_id, 'ar_card_id', $card_id);
 	update_post_meta($ar_id, 'ar_targets', wp_json_encode($targets));
 	update_post_meta($ar_id, 'ar_user_id', $user_id);
+	
+	// Save stamp logo to user meta for future use
+	if (!empty($targets[1]['image'])) {
+		update_user_meta($user_id, 'msp_stamp_logo', $targets[1]['image']);
+	}
+	
 	$redirect = $card_id ? (msp_get_page_url_by_slug('card-preview') . '?card_id=' . $card_id) : msp_get_page_url_by_slug('dashboard');
 	wp_send_json_success(['redirect_url'=>$redirect]);
 }
