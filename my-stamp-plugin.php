@@ -1041,7 +1041,8 @@ add_shortcode('stamp_customizer_iframe', function() {
 				currentSelections.preview_data_url = msg.data.preview_data_url;
 			}
 		});
-		document.getElementById('mspSaveStampBtn').addEventListener('click', function(){
+		const saveBtn = document.getElementById('mspSaveStampBtn');
+		if (saveBtn) saveBtn.addEventListener('click', function(){
 			const payload = {
 				title: currentSelections.title,
 				selections: currentSelections,
@@ -1063,8 +1064,8 @@ add_shortcode('stamp_customizer_iframe', function() {
 			}).catch(()=>alert('Erreur réseau'));
 		});
 		document.getElementById('mspGoArBtn').addEventListener('click', function(){
-			const pr = encodeURIComponent(currentSelections.preview_data_url || '');
-			window.location.href = '<?php echo esc_url(msp_get_page_url_by_slug('ar-form')); ?>?stamp_preview='+pr;
+			try { sessionStorage.setItem('msp_stamp_preview', currentSelections.preview_data_url || ''); } catch(e) {}
+			window.location.href = '<?php echo esc_url(msp_get_page_url_by_slug('ar-form')); ?>';
 		});
 		rebuildInvoice();
 	})();
@@ -1165,6 +1166,37 @@ add_shortcode('msp_ar_form', function () {
 	</div>
 	<script>
 	const sets = Array.from(document.querySelectorAll('.ar-target'));
+	// Load preview from sessionStorage if not in URL
+	(function(){
+		try {
+			var hasImg = <?php echo $stamp_preview ? 'true' : 'false'; ?>;
+			if (!hasImg) {
+				var sv = sessionStorage.getItem('msp_stamp_preview') || '';
+				if (sv) {
+					// Show side preview box dynamically
+					var aside = document.querySelector('#mspArPreviewBox');
+					if (!aside) {
+						var wrap = document.querySelector('.ar-target')?.closest('div')?.parentNode;
+						// Fallback: append to body top
+						aside = document.createElement('div');
+						aside.id = 'mspArPreviewBox';
+						aside.style.position='sticky'; aside.style.top='10px'; aside.style.background='#fff';
+						aside.style.border='1px solid #e5e7eb'; aside.style.borderRadius='12px'; aside.style.padding='10px';
+						var img = document.createElement('img'); img.style.width='100%'; img.style.height='auto'; img.style.borderRadius='10px'; img.style.border='1px solid #e5e7eb';
+						img.alt=''; img.src=sv; aside.appendChild(img);
+						document.body.insertBefore(aside, document.body.firstChild);
+					}
+					// Make target 1 image optional
+					var req = document.querySelector('input[name="targets[1][image]"]'); if (req) req.required = false;
+					// Ensure it posts with the form as hidden field
+					var form = document.getElementById('mspAr10Form');
+					if (form && !form.querySelector('input[name="stamp_preview"]')){
+						var hid = document.createElement('input'); hid.type='hidden'; hid.name='stamp_preview'; hid.value=sv; form.appendChild(hid);
+					}
+				}
+			}
+		} catch(e) {}
+	})();
 	document.getElementById('btnAddTarget').addEventListener('click', ()=>{
 		let hidden = null;
 		for (let i=0;i<sets.length;i++){
