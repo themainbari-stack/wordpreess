@@ -1172,6 +1172,7 @@ add_shortcode('msp_ar_form', function () {
 			var hasImg = <?php echo $stamp_preview ? 'true' : 'false'; ?>;
 			if (!hasImg) {
 				var sv = sessionStorage.getItem('msp_stamp_preview') || '';
+				var lg = sessionStorage.getItem('msp_stamp_logo') || '';
 				if (sv) {
 					// Show side preview box dynamically
 					var aside = document.querySelector('#mspArPreviewBox');
@@ -1192,6 +1193,9 @@ add_shortcode('msp_ar_form', function () {
 					var form = document.getElementById('mspAr10Form');
 					if (form && !form.querySelector('input[name="stamp_preview"]')){
 						var hid = document.createElement('input'); hid.type='hidden'; hid.name='stamp_preview'; hid.value=sv; form.appendChild(hid);
+					}
+					if (form && lg && !form.querySelector('input[name="stamp_logo"]')){
+						var hid2 = document.createElement('input'); hid2.type='hidden'; hid2.name='stamp_logo'; hid2.value=lg; form.appendChild(hid2);
 					}
 				}
 			}
@@ -1226,6 +1230,43 @@ function msp_create_ar_targets_handler(){
 	$ar_id = wp_insert_post([ 'post_title'=>'Expérience AR', 'post_content'=>'', 'post_status'=>'publish', 'post_type'=>'msp_ar_experience', 'post_author'=>$user_id ]);
 	if (is_wp_error($ar_id)) wp_send_json_error('Erreur lors de la création AR');
 
+	// Helper to persist data URL image to uploads and return URL
+	$save_data_url_image = function(string $dataUrl, string $filename = 'stamp-image.png'){
+		if (!preg_match('/^data:image\/(png|jpe?g);base64,(.+)$/i', $dataUrl, $m)) return '';
+		$type = strtolower($m[1]);
+		$base64 = $m[2];
+		$bin = base64_decode($base64);
+		if ($bin === false) return '';
+		$upload = wp_upload_dir();
+		$ext = ($type === 'jpeg' || $type === 'jpg') ? 'jpg' : 'png';
+		$filename = sanitize_file_name(pathinfo($filename, PATHINFO_FILENAME)) . '.' . $ext;
+		$filepath = trailingslashit($upload['path']) . wp_unique_filename($upload['path'], $filename);
+		if (!file_put_contents($filepath, $bin)) return '';
+		$attachment = [
+			'post_mime_type' => ('image/' . $ext),
+			'post_title'     => sanitize_file_name($filename),
+			'post_content'   => '',
+			'post_status'    => 'inherit'
+		];
+		$attach_id = wp_insert_attachment($attachment, $filepath);
+		if (is_wp_error($attach_id) || !$attach_id) return '';
+		require_once ABSPATH . 'wp-admin/includes/image.php';
+		$attach_data = wp_generate_attachment_metadata($attach_id, $filepath);
+		wp_update_attachment_metadata($attach_id, $attach_data);
+		$url = wp_get_attachment_url($attach_id);
+		return $url ?: '';
+	};
+
+	$stamp_preview_in = isset($_POST['stamp_preview']) ? trim((string) $_POST['stamp_preview']) : '';
+	$stamp_logo_in    = isset($_POST['stamp_logo']) ? trim((string) $_POST['stamp_logo']) : '';
+
+	$autoTarget1Url = '';
+	if ($stamp_logo_in) {
+		$autoTarget1Url = (stripos($stamp_logo_in, 'data:image') === 0) ? $save_data_url_image($stamp_logo_in, 'target-1-logo.png') : esc_url_raw($stamp_logo_in);
+	} elseif ($stamp_preview_in) {
+		$autoTarget1Url = (stripos($stamp_preview_in, 'data:image') === 0) ? $save_data_url_image($stamp_preview_in, 'target-1-preview.png') : esc_url_raw($stamp_preview_in);
+	}
+
 	$targets = [];
 	if (!empty($_FILES['targets']['name']) && is_array($_FILES['targets']['name'])) {
 		for ($i=1;$i<=10;$i++){
@@ -1249,6 +1290,10 @@ function msp_create_ar_targets_handler(){
 						else $slot[$key] = $up['url'];
 					}
 				}
+			}
+			// Auto-fill target 1 image from saved preview/logo if no file uploaded
+			if ($i === 1 && empty($slot['image']) && $autoTarget1Url) {
+				$slot['image'] = $autoTarget1Url;
 			}
 			if (!empty($slot['image']) || !empty($slot['business_card_url']) || !empty($slot['google_survey_url'])) $targets[$i] = $slot;
 		}
